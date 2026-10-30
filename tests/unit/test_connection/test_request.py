@@ -397,6 +397,14 @@ def test_request_cookies() -> None:
         assert response.text == "Hello, cookies!"
 
 
+def test_request_cookies_from_multiple_headers(scope: Scope) -> None:
+    scope["headers"] = [(b"cookie", b"first=one"), (b"cookie", b"second=two")]
+
+    request = Request(scope=scope)
+
+    assert request.cookies == {"first": "one", "second": "two"}
+
+
 def test_chunked_encoding() -> None:
     @post("/")
     async def handler(request: Request) -> bytes:
