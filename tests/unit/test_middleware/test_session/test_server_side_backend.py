@@ -1,5 +1,6 @@
 from secrets import token_hex
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -37,6 +38,53 @@ async def test_non_default_store(memory_store: MemoryStore) -> None:
         res = client.get("/")
         assert res.status_code == 200
         assert await memory_store.exists(res.cookies["session"])
+
+
+def test_clear_session_cookie_expires_immediately(memory_store: MemoryStore) -> None:
+    @get("/set")
+    def set_session(request: Request) -> None:
+        request.set_session({"foo": "bar"})
+
+    @get("/clear")
+    def clear_session(request: Request) -> None:
+        request.clear_session()
+
+    app = Litestar(
+        [set_session, clear_session],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": memory_store},
+    )
+
+    with TestClient(app) as client:
+        client.get("/set")
+        response = client.get("/clear")
+
+    assert "max-age=0" in response.headers["set-cookie"].lower()
+
+
+def test_null_session_cookie_does_not_read_store(memory_store: MemoryStore, monkeypatch: pytest.MonkeyPatch) -> None:
+    store_get = AsyncMock(wraps=MemoryStore.get)
+
+    async def track_get(store: MemoryStore, key: str, renew_for: int | None = None) -> bytes | None:
+        return await store_get(store, key, renew_for=renew_for)
+
+    monkeypatch.setattr(MemoryStore, "get", track_get)
+
+    @get("/")
+    def handler() -> None:
+        return None
+
+    app = Litestar(
+        [handler],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": memory_store},
+    )
+
+    with TestClient(app) as client:
+        client.cookies.set("session", "null")
+        client.get("/")
+
+    store_get.assert_not_awaited()
 
 
 async def test_set_store_name(memory_store: MemoryStore) -> None:

@@ -6,6 +6,15 @@
 .. changelog:: 3.0.0
     :date: 2364-01-27
 
+    .. change:: Expire server-side session cookies when clearing a session
+        :type: bugfix
+        :issue: 5171
+
+        Clearing a server-side session now sets ``Max-Age=0`` on the deletion cookie,
+        so the browser removes it even when the configured session cookie has a positive
+        ``max_age``. A literal ``null`` session cookie is also ignored when loading data
+        from the store.
+
     .. change:: Declare ``socket`` in the original signature of a ``websocket_stream`` handler
         :type: bugfix
         :pr: 5161

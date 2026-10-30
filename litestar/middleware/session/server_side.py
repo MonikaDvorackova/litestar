@@ -130,9 +130,10 @@ class ServerSideSessionBackend(BaseSessionBackend["ServerSideSessionConfig"]):
 
         if scope_session is Empty:
             await self.delete(session_id, store=store)
+            expired_cookie_params = {**cookie_params, "max_age": 0}
             headers.add(
                 "Set-Cookie",
-                Cookie(value="null", key=self.config.key, expires=0, **cookie_params).to_header(header=""),
+                Cookie(value="null", key=self.config.key, expires=0, **expired_cookie_params).to_header(header=""),
             )
         else:
             serialised_data = self.serialize_data(scope_session, scope)
@@ -157,7 +158,7 @@ class ServerSideSessionBackend(BaseSessionBackend["ServerSideSessionConfig"]):
         Returns:
             The current session data
         """
-        if session_id := connection.cookies.get(self.config.key):
+        if (session_id := connection.cookies.get(self.config.key)) and session_id != "null":
             store = self.config.get_store_from_app(connection.scope["app"])
             data = await self.get(session_id, store=store)
             if data is not None:
